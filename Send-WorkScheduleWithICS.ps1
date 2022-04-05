@@ -19,7 +19,7 @@
 .EXAMPLE
     PS> .\Send-WorkScheduleWithICS.ps1 -Path "$PSScriptRoot\schedule_template.csv" -Type 'CSV'
 .NOTES
-    Last update: Tuesday, April 5, 2022 12:32:34 AM
+    Last update: Tuesday, April 5, 2022 1:15:40 AM
 #>
 
 param ([string]$Path = "$PSScriptRoot\schedule_template.csv", [ValidateSet('CSV','McD','BK','Wend','DQ','TacT','TacB','SubW')][string]$Type = 'CSV', [switch]$Setup)
@@ -231,8 +231,8 @@ Send-MailMessage @adminMailArguments
 # SIG # Begin signature block
 # MIIVpAYJKoZIhvcNAQcCoIIVlTCCFZECAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU3vj664LLkRTmGRZ8/gt6Kg3B
-# G/CgghIFMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQULbTi+Jjf6kP2HyYrdRm5CMux
+# 64mgghIFMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
 # AQwFADB7MQswCQYDVQQGEwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVy
 # MRAwDgYDVQQHDAdTYWxmb3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEh
 # MB8GA1UEAwwYQUFBIENlcnRpZmljYXRlIFNlcnZpY2VzMB4XDTIxMDUyNTAwMDAw
@@ -333,16 +333,16 @@ Send-MailMessage @adminMailArguments
 # U2lnbmluZyBDQSBSMzYCEFXW/fyTR4LO3Cqs0hOoVDAwCQYFKw4DAhoFAKB4MBgG
 # CisGAQQBgjcCAQwxCjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcC
 # AQQwHAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYE
-# FLo2t096bO+8wICe7IB3nti2uR23MA0GCSqGSIb3DQEBAQUABIICAETugm2Ah4Ww
-# iz9SVXk6OUw1EJ6/aJGAlU9xnz/O1WuvA9O5ssMq68253gD6UN2l2FK2BdcWN4sY
-# 1Wj37EcRd4uCgrUSvo1xVrAYxiM5B5iqiu2WtsqfrSeSUxQWLvBLMlq9JwSnaOhz
-# YNEtEIsafvGUD7oAme2SVuXXeEE/PuL7e4zXEtZkAd13fAaBp56fot32WGAN1pF7
-# /gre/DqSLt7+G985QpPT2CZ0t5LU436ydp+Jr+nQAqj1yeW8rRL1CrNA4lvkwPYy
-# wO7ZcFcTKjR+Zwq0vYX7cOGYzNsyjQEisEOiIH1R8XZwOCXinPyZdgBL7cVwjvic
-# /pBgtMZ/VplrEi+q1Dt3By+dF+lhEHUQVbB2bUBqMVoaqimrMvUZwwRRldELXtNp
-# endhKJX4jZm7xLpi1Qrq2FfSSpTXE2FhddyyuZjuALp3cBRuNj5nuCj69Fklleye
-# v2Ofps/Brrq3LXxFlvI8xnomr50G6PhtnEDe0ouCITSPgcnXVybuTlMTmv6zPJku
-# hbbikS3g+wPbfJDZLyklse5ArtVLD8U1kqmWmVnMkKh5HQGsBwBU2dMD4IBVi819
-# WEYY1Zmd0zxefrrZR0Bvmu2ikkTAOTfVldKIrBSDdJm+c8CUFjxujq5JYSsqzCR+
-# n1gGo28EzFx9wcJkGXFq4jE5DlqEG57Q
+# FCFFWafIoatLM2fhnH8FjzUmcDLjMA0GCSqGSIb3DQEBAQUABIICAG/SegXhG2gj
+# DZ/yrtTwbHYp2aoyZzjQNZJvb7r7XUKb2kZbiIiGPEIdI1hDKuLn95b1bz/i2y6j
+# 7+lduY+3eAx13esWgB6zaJ3ZpgHe/3zIKpxlDxtDdLGYmlbJcbLsBc+2kILMG8pE
+# 5+WQaQvViqI12Etdu0JZZAqsf441VF5JYO+UwESndoEXpNyiIb0pyBYOkKFvROnI
+# n7ZyKe1boe5JgCfgaMlIqsUGI3cl/gLUDP6MLG0ZIp8bqrpNoO77W4NBlu5OTaQg
+# M/TS+PrO2hco65fzRkOV21EuMPMyZHGltKTTxCJ7zNVJpzMSPuf/ahDUj6zgUHxG
+# 9qlveaGEFKIuKGszu0VCKuVH1Z/rApNbWMQ5tZfqa+O32TwmY+OfL/5okq8x+DOd
+# oXtw5DJvuivAwlKQ1oue709q+njB8s8XppHBAiQd0ARU3f9EI6YguCm/MgJLx0Yj
+# r9V0YwJhag7mPelUff8yd3RgDHoVPoKLtn2jm4R0X/neEtxR3JdwbZewk0Av1995
+# eA5dC4FGHo7c/8d0GfClcgE4C/kByl4T69z/duMveK+1W6w1rVoudtry9OE+ZivN
+# EgLfAaPTHRISOMKC30/aVCBT4+EMVJbiaCnpKkfZGyzZuUcl2ogqNt81wNx+GXtY
+# gAvaGKa1bFWj9XCwbOCqQdeTwRcGhRXS
 # SIG # End signature block
