@@ -1,22 +1,38 @@
-﻿#Intended for use by restaurants with variable weekly scheduling spreadsheets
-#https://en.wikipedia.org/wiki/ICalendar
-#https://gist.github.com/nyanhp/20ff0edb7c78cdb08375a15826e47da2
-# original script outline:
-# 1. convert from native format to csv
-# 2. convert csv table into @(PSCustomObject) array
-# 3. convert 24hr and add datetime range scheduling NoteProterties to PSCustomObject array
-# 4. consume email address ID=value list and add as NoteProperty to PSCustomObject array
-# 5. foreach employee scheduling object element {
-#     i. generate ICS file from an input PSCustomObject with scheduling NoteProperties}
-# 6. foreach employee scheduling object element, generate email body with schedule, attach individual's generated ICS file {
-#     i. Send-MailMessage -Body $msgBody -Attachment $ICSfile -Subject "$($employee.Name)'s schedule for week starting $weekStartDate"}
-# 7. foreach $employee Where $_.EmailAdddress -eq '' {Send-MailMessage -To $adminEmail -Body $adminErrors}
+﻿<#
+.SYNOPSIS
+    Intended for use by restaurants that already use weekly scheduling spreadsheets.
+    Uses the iCalendar RFC/standard to generate widely compatible calendar events as an ICS file attachment: https://en.wikipedia.org/wiki/ICalendar
+.DESCRIPTION
+    Requires a ProtonMail paid account ($48/year) to function as a turnkey solution:
+    1. Subscribe: https://account.protonmail.com/signup?plan=plus&billing=12&currency=USD&language=en
+    2. Install: https://protonmail.com/bridge
+    3. Config: ProtonMail Bridge > Settings (Gear Icon) > Advancecd Settings > SMTP connection mode > SSL
+.PARAMETER Path
+    Path to the folder where all new scheduling files are to be saved/exported.
+    The script will process ONLY ONE FILE from this folder location, the NEWEST based on the last modified date.
+.PARAMETER Type
+    Specifies the type of file being used, which changes how the file is processed: dropping extra columns, formatting cell values, etc.
+    If you would like your restaurant(s) to be added to these $Types, supply a short 2 to 4 character name, and a sample scheduling file, as it's saved from your spreadsheet application: and email those to me: mbarr564@protonmail.com
+    The scheduling file should have employee names changed, and cell values modified/deleted, as long as the file's exact unmodified formatting remains intact (i.e. don't remove any commas, or columns, and don't remove the top row header).
+.PARAMETER Setup
+    NYI: Run/rerun first time setup winforms wizard, as seen after double-clicking the batch launcher script.
+.EXAMPLE
+    PS> .\Send-WorkScheduleWithICS.ps1 -Path "$PSScriptRoot\schedule_template.csv" -Type 'CSV'
+.NOTES
+    Last update: Tuesday, April 5, 2022 12:32:34 AM
+#>
 
-param ([string]$CSVPath = "$PSScriptRoot\schedule_template.csv", [ValidateSet('CSV','McD','BK','Wend','DQ','TacT','TacB','SubW')][string]$Type = 'CSV')
+param ([string]$Path = "$PSScriptRoot\schedule_template.csv", [ValidateSet('CSV','McD','BK','Wend','DQ','TacT','TacB','SubW')][string]$Type = 'CSV', [switch]$Setup)
 
 ## Init
-[string[]]$adminErrors = @()
 $VerbosePreference = 'Continue'
+[string[]]$adminErrors = @()
+[string[]]$configPatterns = @("^127\.0\.0\.1$","^[0-9]{2,5}$","^.*@.*\..*$","^[A-Z0-9-_]{20,32}$","^SSL$") #regex for each config line
+[string[]]$protonMailBridgeConfig = @(Get-Content "$PSScriptRoot\..\..\local\Send-WorkScheduleWithICS\protonmail.ini") #todo: winforms: generate protonmail.ini if missing
+if (-not($protonMailBridgeConfig)){throw "Error: unable to import ProtonMail Bridge config file from: $PSScriptRoot\protonmail.ini"} #todo: replace bridge password with secure/encrypted string
+for ($i = 0; $i -le 4; $i++){if ($protonMailBridgeConfig[$i] -notmatch $configPatterns[$i]){throw "Error: ProtonMail Bridge config line $($i + 1) value '$($protonMailBridgeConfig[$i])' is invalid."}}
+$emailTable = Import-CSV "$PSScriptRoot\..\..\local\Send-WorkScheduleWithICS\emails.csv" #todo: winforms: generate emails.csv and add missing addresses
+$emailTable = $emailTable | Where-Object {$_.EmailAddress -like "*@*.*"} #filter missing email addresses
 
 ## Import schedule file
 ## Returned columns: "Name", "EmployeeID", "Dayname (MM/dd/yy)" x7
@@ -24,14 +40,13 @@ function Import-ScheduleFile
 {
     ## Placeholder: convert native file format or CSV into table-like PSObject
     Write-Output "[$(Get-Date -f HH:mm:ss.fff)] Importing scheduling file ..."
-    if ($Type -ne 'CSV'){throw "Error: NYI"} #switch $Type, transform input schedule file into template format
-    return Import-CSV $CSVPath
+    if ($Type -ne 'CSV'){throw "Error: NYI"} #switch $Type, transform input schedule file into template format: a weekly generic 24hr time span table
+    return Import-CSV $Path
 }
 $scheduleTable = Import-ScheduleFile
 
 ## Process header column names
 Write-Output "[$(Get-Date -f HH:mm:ss.fff)] Processing table date columns ..."
-$scheduleTable = Import-ScheduleFile
 $scheduleDays = @()
 [string[]]$columnNames = @(($scheduleTable[0].PSObject.Properties).Name) #Monday (05/16/22)
 $columnNames | Where-Object {$_ -match "^[A-Z]{3,6}day .?[0-9]{2}/[0-9]{2}/[0-9]{2}.?$"} | ForEach-Object {
@@ -48,10 +63,10 @@ $scheduleTable | ForEach-Object {
     $dayScheduleTable += [PSCustomObject]@{
         Name = $_.Name
         EmployeeID = $_.EmployeeID
-        "$($dayColumns[0].Split(' ')[0])" = $_."$($dayColumns[0])" #$_."Monday (05/16/22)"
+        "$($dayColumns[0].Split(' ')[0])" = $_."$($dayColumns[0])" #"Monday" = $_."Monday (05/16/22)"
         "$($dayColumns[1].Split(' ')[0])" = $_."$($dayColumns[1])" #$dayColumns array used due to differing week start days
         "$($dayColumns[2].Split(' ')[0])" = $_."$($dayColumns[2])"
-        "$($dayColumns[3].Split(' ')[0])" = $_."$($dayColumns[3])"
+        "$($dayColumns[3].Split(' ')[0])" = $_."$($dayColumns[3])" 
         "$($dayColumns[4].Split(' ')[0])" = $_."$($dayColumns[4])"
         "$($dayColumns[5].Split(' ')[0])" = $_."$($dayColumns[5])"
         "$($dayColumns[6].Split(' ')[0])" = $_."$($dayColumns[6])"
@@ -74,7 +89,7 @@ foreach ($scheduleRow in $dayScheduleTable)
     {
         ## Read cell contents
         [string]$cellTimeSpan = $scheduleRow."$($scheduleDay.Name)"
-        if ($cellTimeSpan = 'OFF')
+        if ($cellTimeSpan -eq 'OFF')
         {
             ## Day OFF today
             $employeeScheduledDays += [PSCustomObject]@{
@@ -87,9 +102,9 @@ foreach ($scheduleRow in $dayScheduleTable)
         {
             ## Parse scheduled shift cell
             ## Split cell data on hyphen, to get start/end times, then on colon, to get hours/minutes. e.g. 10:30-16:00 below
-            $startHour = $cellTimeSpan.Split('-')[0].Trim(' ').Split(':')[0] #[0]:[0] = [Left side of hyphen split]:[Left side of colon split] = 10
+            $startHour = $cellTimeSpan.Split('-')[0].Trim(' ').Split(':')[0]    #[0]:[0] = [Left side of hyphen split]:[Left side of colon split] = 10
             $startMinute = $cellTimeSpan.Split('-')[0].Trim(' ').Split(':')[1] #[0]:[1] = [Left side of hyphen split]:[Right side of colon split] = 30
-            $endHour = $cellTimeSpan.Split('-')[1].Trim(' ').Split(':')[0] #[1]:[0] = [Right side of hyphen split]:[Left side of colon split] = 16
+            $endHour = $cellTimeSpan.Split('-')[1].Trim(' ').Split(':')[0]    #[1]:[0] = [Right side of hyphen split]:[Left side of colon split] = 16
             $endMinute = $cellTimeSpan.Split('-')[1].Trim(' ').Split(':')[1] #[1]:[1] = [Right side of hyphen split]:[Right side of colon split] = 00
     
             ## Create datetime objects
@@ -102,9 +117,10 @@ foreach ($scheduleRow in $dayScheduleTable)
                 Name = $scheduleDay.Name
                 Date = $scheduleDay.Date
                 Working = $true
+                Timespan = $cellTimeSpan
                 Start = $startDateTime
                 End = $endDateTime
-                Total = (($endDateTime - $startDateTime).TotalHours).ToString("##.#"))
+                Total = (($endDateTime - $startDateTime).TotalHours).ToString("##.##")
             }
 
             ## Add schedule event to iCalendar ICS file contents
@@ -128,9 +144,13 @@ foreach ($scheduleRow in $dayScheduleTable)
             $ICS += 'END:VALARM'
             $ICS += 'END:VEVENT'
         }
-        else {$adminErrors += "Attention required: cell time span '$cellTimeSpan' for '$($scheduleRow.Name)' ($($scheduleRow.EmployeeID)) on $($scheduleDay.Date) is invalid."}
+        else {$adminErrors += "Cell time span '$cellTimeSpan' for '$($scheduleRow.Name)' ($($scheduleRow.EmployeeID)) on $($scheduleDay.Date) is invalid."}
     }
     $ICS += 'END:VCALENDAR'
+
+    ## Employee email address
+    $employeeEmail = ($emailTable | Where-Object {$_.EmployeeID -eq $employeeRow.EmployeeID}).EmailAddress
+    if (-not($employeeEmail)){$employeeEmail = 'Unknown'}
 
     ## Add employee object with above scheduling data properties
     Write-Verbose "[$(Get-Date -f HH:mm:ss.fff)] Adding employee '$($scheduleRow.Name)' ($($scheduleRow.EmployeeID)) to scheduling table ..."
@@ -139,39 +159,80 @@ foreach ($scheduleRow in $dayScheduleTable)
         EmployeeID = $scheduleRow.EmployeeID
         Schedule = $employeeScheduledDays
         VCalendar = $ICS
+        EmailAddress = $employeeEmail
     }
 }
 
-## Scheduling table to email body / attachment
-#$missingEmailNamesAndIDs += "'$($scheduleRow.Name)' ($($scheduleRow.EmployeeID))"
-#$adminErrors += "Attention required: missing email addresses for: $($missingEmailNamesAndIDs -join ', '))."
-#$employeeSchedulingTable.Schedule | ForEach-Object {$mailBodyHTML += "<ul>$($_.Name): $($_.Start) - $($_.End)</ul>"; $weekTotalHours += $_.Total}
-#$employeeSchedulingTable.VCalendar | Out-File -FilePath $fileName -Encoding UTF8 -Force
-
-## Send secure HTML email with ICS attachment
+## Build and send secure HTML email with ICS attachment, to all employees in the scheduling table
+## $protonMailBridgeConfig[0] IP address, [1] service port, [2] email address, [3] Bridge password
 Write-Output "[$(Get-Date -f HH:mm:ss.fff)] Sending $($employeeSchedulingTable.count) emails to employees ..."
-## ProtonMail w/Bridge, $48/yr:
-#https://protonmail.com/bridge
-#https://account.protonmail.com/signup?plan=plus&billing=12&currency=USD&language=en
-#https://stackoverflow.com/questions/61574549/sending-emails-with-protonmail-in-c-sharp
-## import/generate bridge config file
-## $mailArguments = @{
-#    Credential = $creds
-#    To = 'asd'
-#    From = $senderAddress
-#    Subject = 'asd'
-#    ReplyTo = $replyToAddress
-#    DeliveryNotificationOption = OnFailure
-#    SMTPServer = 'asd'
-#    Attachment = 'asd'
-#    UseSSL = $true
-#}
-## Send-MailMessage @mailArguments
+$password = $protonMailBridgeConfig[3] | ConvertTo-SecureString -AsPlainText -Force #todo: replace bridge password with secure/encrypted string
+$credentials = New-Object System.Management.Automation.PSCredential -ArgumentList ($protonMailBridgeConfig[2],$password)
+foreach ($employee in $employeeSchedulingTable)
+{
+    ## Notify admin and skip missing email addresses
+    if ($employee.EmailAddress -eq 'Unknown'){$adminErrors += "Email address missing for '$($scheduleRow.Name)', please add EmployeeID $($scheduleRow.EmployeeID)."; continue}
+    
+    ## Employee email message body
+    [string]$totalHours = ($employee.Schedule | Measure-Object -Sum -Property Total).Sum
+    [string[]]$msgBody = @()
+    $msgBody += "<html><body>Hello $($employee.Name),<br>"
+    $msgBody += "Your work schedule for week starting $($scheduleDays[0].Date):<br><ul>"
+    $employee.Schedule | ForEach-Object {$msgBody += "<li>$($_.Name) $($_.Date): $($_.Timespan)</li>"} # - Monday 05/16/22: 10:30-16:00
+    $msgBody += "</ul><br>You're scheduled for $totalHours total hours.<br>Calendar app work schedule is attached.</body></html>"
+
+    ## Employee email arguments
+    $mailArguments = @{
+        Credential = $credentials
+        To = $employee.EmailAddress
+        From = $protonMailBridgeConfig[2]
+        Subject = "$($employee.Name) Work Schedule: Week Starting $($scheduleDays[0].Date)"
+        Body = $msgBody
+        DeliveryNotificationOption = OnFailure
+        SMTPServer = $protonMailBridgeConfig[0]
+        Port = $protonMailBridgeConfig[1]
+        UseSSL = $true
+        ErrorAction = Stop
+    }
+
+    ## Employee email attachment
+    $ICSFilePath = "$($env:TEMP)\calendar.ics"
+    if (Test-Path $ICSFilePath){Remove-Item -LiteralPath $ICSFilePath}
+    $employee.VCalendar | Out-File -FilePath $ICSFilePath -Encoding UTF8
+    if (Test-Path $ICSFilePath){$mailArguments.add('Attachment',$ICSFilePath)}
+
+    ## Email the employee schedule
+    try {Send-MailMessage @mailArguments}
+    catch {$adminErrors += "Error sending email to '$($employee.EmailAddress)' ($($employee.Name) ($($employee.EmployeeID)))."}
+}
+
+## Admin email message body
+[string[]]$adminMsgBody = @()
+$adminMsgBody += '<html><body>The following issues need your attention:<br><ul>'
+$adminErrors | ForEach-Object {$adminMsgBody += "<li>$_</li>"}
+$adminMsgBody += '</ul></body></html>'
+
+## Admin email arguments
+$adminMailArguments = @{
+    Credential = $credentials
+    To = $protonMailBridgeConfig[2]
+    From = $protonMailBridgeConfig[2]
+    Subject = "Attention required: Send-WorkScheduleWithICS: Week Starting $($scheduleDays[0].Date)"
+    Body = $adminMsgBody
+    DeliveryNotificationOption = OnFailure
+    SMTPServer = $protonMailBridgeConfig[0]
+    Port = $protonMailBridgeConfig[1]
+    UseSSL = $true
+}
+
+## Admin email
+Send-MailMessage @adminMailArguments
+
 # SIG # Begin signature block
 # MIIVpAYJKoZIhvcNAQcCoIIVlTCCFZECAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU7nZO0gA+LpTx6bqGOPnYs/C1
-# 9GKgghIFMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU3vj664LLkRTmGRZ8/gt6Kg3B
+# G/CgghIFMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
 # AQwFADB7MQswCQYDVQQGEwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVy
 # MRAwDgYDVQQHDAdTYWxmb3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEh
 # MB8GA1UEAwwYQUFBIENlcnRpZmljYXRlIFNlcnZpY2VzMB4XDTIxMDUyNTAwMDAw
@@ -272,16 +333,16 @@ Write-Output "[$(Get-Date -f HH:mm:ss.fff)] Sending $($employeeSchedulingTable.c
 # U2lnbmluZyBDQSBSMzYCEFXW/fyTR4LO3Cqs0hOoVDAwCQYFKw4DAhoFAKB4MBgG
 # CisGAQQBgjcCAQwxCjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwGCisGAQQBgjcC
 # AQQwHAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZIhvcNAQkEMRYE
-# FAycjAMvxWejHe+hDtDY2RzJ7EfRMA0GCSqGSIb3DQEBAQUABIICAA2i2iG2zsMc
-# 4T3VNlSBomZFiZ2NdU5aajqHzKQDl6ZQvBXlids6drXArst6LFxSml56V9THadHm
-# OfjTBRcc7vEm4f4iCfQ/27coEZNggxnk9rf9RbF7rsCi3j962JG/8o5amEN3DXDJ
-# 9oX+sZujeOnwS+1xJb9Mjk/q44/jwl9YVMUTOBMYxH9MRSRLvYtbf/IxCzoO9ujr
-# 7S6v7o6ffTLKEQm02M8mys4c8U3IHR7AeW5T9rz1kZO4H/kZlVfcjTgE9bc3eGuD
-# 4QGnjM1CT4/etPF2G5ejj3gNw6g4oXEUSLh2otn3R5CVaZr/f3kYBuaSvpz9JdyQ
-# oqzsDHrTQyHA0UFdFrDuUf00IRLxLispHk2UqgKOq5NMrA0zX9dkkW6cYsalr4x8
-# QL3FypXmdk5ISwERYCluCqhg+IdQC3twT+K4TnUMkxn65WVVUmqQj5M1KDhync9M
-# B/B0iffPwW95DI+xtlK/17ZtXqEXxouC8hOMwFAakJo+KVQEjUTt31BQgmuOxo8p
-# MXYQcwRi8b3FQbFiaFoe3MiTcY8a5/b2U7TzXw03nMcjfpX7XbnSAB4tx9hKnLYo
-# Eug+V3ORYZliHad6FVrVgSyLzJTPcDwE77zlEmXJlDY2Nn0OKi7T6C5y+R9F+gJ2
-# 3LmKQ4fJP06RNXMgSVYcV3eMupTQGeWd
+# FLo2t096bO+8wICe7IB3nti2uR23MA0GCSqGSIb3DQEBAQUABIICAETugm2Ah4Ww
+# iz9SVXk6OUw1EJ6/aJGAlU9xnz/O1WuvA9O5ssMq68253gD6UN2l2FK2BdcWN4sY
+# 1Wj37EcRd4uCgrUSvo1xVrAYxiM5B5iqiu2WtsqfrSeSUxQWLvBLMlq9JwSnaOhz
+# YNEtEIsafvGUD7oAme2SVuXXeEE/PuL7e4zXEtZkAd13fAaBp56fot32WGAN1pF7
+# /gre/DqSLt7+G985QpPT2CZ0t5LU436ydp+Jr+nQAqj1yeW8rRL1CrNA4lvkwPYy
+# wO7ZcFcTKjR+Zwq0vYX7cOGYzNsyjQEisEOiIH1R8XZwOCXinPyZdgBL7cVwjvic
+# /pBgtMZ/VplrEi+q1Dt3By+dF+lhEHUQVbB2bUBqMVoaqimrMvUZwwRRldELXtNp
+# endhKJX4jZm7xLpi1Qrq2FfSSpTXE2FhddyyuZjuALp3cBRuNj5nuCj69Fklleye
+# v2Ofps/Brrq3LXxFlvI8xnomr50G6PhtnEDe0ouCITSPgcnXVybuTlMTmv6zPJku
+# hbbikS3g+wPbfJDZLyklse5ArtVLD8U1kqmWmVnMkKh5HQGsBwBU2dMD4IBVi819
+# WEYY1Zmd0zxefrrZR0Bvmu2ikkTAOTfVldKIrBSDdJm+c8CUFjxujq5JYSsqzCR+
+# n1gGo28EzFx9wcJkGXFq4jE5DlqEG57Q
 # SIG # End signature block
